@@ -13,13 +13,15 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="preload" href="fonts/poppins-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/poppins-600.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <header class="topbar">
     <div class="topbar-inner">
       <h1 class="app-title" id="viewTitle">Beranda</h1>
-      <button class="icon-btn sync-btn" id="syncBtn" aria-label="Sinkron dengan Google Sheet" hidden>⟳</button>
+      <button class="icon-btn sync-btn" id="syncBtn" aria-label="Sinkron dengan Google Sheet" hidden><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg></button>
       <div class="month-switch" role="group" aria-label="Pilih bulan">
         <button class="icon-btn" id="prevMonth" aria-label="Bulan sebelumnya">‹</button>
         <button class="month-label" id="monthLabel" title="Kembali ke bulan ini"></button>
@@ -34,7 +36,7 @@
       <div class="install-banner" id="installBanner" hidden>
         <span>📲 Pasang aplikasi ini di HP kamu</span>
         <button class="btn btn-small btn-primary" data-action="install">Pasang</button>
-        <button class="icon-btn" data-action="dismiss-install" aria-label="Tutup">✕</button>
+        <button class="icon-btn" data-action="dismiss-install" aria-label="Tutup"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
 
       <div class="card hero">
@@ -153,7 +155,7 @@
         <div id="sheetStatus" hidden>
           <div id="sheetInfo"></div>
           <div class="btn-col">
-            <button class="btn btn-primary" data-action="sync">⟳ Sinkron sekarang</button>
+            <button class="btn btn-primary" data-action="sync"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg> Sinkron sekarang</button>
             <button class="btn btn-danger" data-action="disconnect-sheet">Putuskan sambungan</button>
           </div>
         </div>
@@ -195,8 +197,8 @@
       <div class="card">
         <h2>Pasang di HP</h2>
         <button class="btn btn-primary" data-action="install" id="installBtn" hidden>📲 Pasang aplikasi</button>
-        <p class="muted"><strong>Android (Chrome):</strong> menu ⋮ → <em>Instal aplikasi</em> / <em>Tambahkan ke layar utama</em>.</p>
-        <p class="muted"><strong>iPhone (Safari):</strong> tombol Bagikan <span aria-hidden="true">⎋</span> → <em>Tambahkan ke Layar Utama</em>.</p>
+        <p class="muted"><strong>Android (Chrome):</strong> buka menu titik tiga di kanan atas, lalu pilih <em>Instal aplikasi</em> / <em>Tambahkan ke layar utama</em>.</p>
+        <p class="muted"><strong>iPhone (Safari):</strong> ketuk tombol Bagikan (kotak dengan panah ke atas), lalu pilih <em>Tambahkan ke Layar Utama</em>.</p>
         <p class="muted">Setelah terpasang, aplikasi tetap bisa dipakai tanpa internet.</p>
       </div>
     </section>
@@ -217,7 +219,7 @@
     <form method="dialog" id="txForm" novalidate>
       <div class="sheet-head">
         <h2 id="txDialogTitle">Tambah transaksi</h2>
-        <button type="button" class="icon-btn" data-close aria-label="Tutup">✕</button>
+        <button type="button" class="icon-btn" data-close aria-label="Tutup"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       <div class="segmented" role="radiogroup" aria-label="Tipe transaksi">
         <label><input type="radio" name="type" value="expense" checked><span>Pengeluaran</span></label>
@@ -258,7 +260,7 @@
     <form method="dialog" id="budgetForm">
       <div class="sheet-head">
         <h2>Atur budget bulanan</h2>
-        <button type="button" class="icon-btn" data-close aria-label="Tutup">✕</button>
+        <button type="button" class="icon-btn" data-close aria-label="Tutup"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       <p class="muted">Batas pengeluaran per bulan untuk tiap kategori. Kosongkan jika tidak ingin dibatasi.</p>
       <div id="budgetFields"></div>
@@ -273,7 +275,7 @@
     <form method="dialog" id="goalForm" novalidate>
       <div class="sheet-head">
         <h2 id="goalDialogTitle">Target baru</h2>
-        <button type="button" class="icon-btn" data-close aria-label="Tutup">✕</button>
+        <button type="button" class="icon-btn" data-close aria-label="Tutup"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       <label class="field">
         <span>Nama target</span>
@@ -304,7 +306,7 @@
     <form method="dialog" id="depositForm" novalidate>
       <div class="sheet-head">
         <h2 id="depositTitle">Tambah setoran</h2>
-        <button type="button" class="icon-btn" data-close aria-label="Tutup">✕</button>
+        <button type="button" class="icon-btn" data-close aria-label="Tutup"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       <div class="segmented" role="radiogroup" aria-label="Jenis">
         <label><input type="radio" name="kind" value="in" checked><span>Setor</span></label>
@@ -334,7 +336,7 @@
     <form method="dialog" id="catForm" novalidate>
       <div class="sheet-head">
         <h2 id="catDialogTitle">Kategori baru</h2>
-        <button type="button" class="icon-btn" data-close aria-label="Tutup">✕</button>
+        <button type="button" class="icon-btn" data-close aria-label="Tutup"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       <div class="segmented" role="radiogroup" aria-label="Tipe kategori">
         <label><input type="radio" name="type" value="expense" checked><span>Pengeluaran</span></label>
@@ -354,6 +356,17 @@
       <div class="sheet-actions">
         <button type="button" class="btn btn-danger" id="catDelete" hidden>Hapus</button>
         <button type="submit" class="btn btn-primary">Simpan</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Dialog: konfirmasi (pengganti confirm() bawaan supaya tetap Poppins) -->
+  <dialog id="askDialog" class="sheet ask">
+    <form method="dialog">
+      <p id="askMessage"></p>
+      <div class="sheet-actions">
+        <button type="button" class="btn" data-ask="no">Batal</button>
+        <button type="button" class="btn btn-primary" data-ask="yes" id="askOk">Ya</button>
       </div>
     </form>
   </dialog>

@@ -10,7 +10,7 @@ Aplikasi pencatat keuangan pribadi yang bisa dibuka dan **dipasang di HP** (Prog
 - **Target tabungan**: buat target (mis. dana darurat), catat setoran/penarikan, lihat progres dan berapa yang perlu ditabung per bulan.
 - **Kategori sendiri**: tambah, ubah, atau hapus kategori.
 - **Cadangan data**: ekspor ke JSON (bisa dipulihkan) dan CSV (bisa dibuka di Excel/Google Sheets).
-- **Tema terang/gelap**, otomatis mengikuti HP.
+- **Tema terang/gelap**, otomatis mengikuti HP. Seluruh tampilan memakai font **Poppins**.
 - **Sinkron 2 arah dengan Google Sheet** (opsional), termasuk **Sumber Dana** (BCA, PayLater, dll.) dan ringkasan per sumber dana.
 
 ## Cara online-kan di GitHub Pages
@@ -77,6 +77,7 @@ sw.js                 service worker (mode offline)
 apps-script/Code.gs   skrip penghubung Google Sheet (ditempel di Apps Script)
 manifest.webmanifest  info aplikasi untuk dipasang di HP
 icons/                ikon aplikasi
+fonts/                font Poppins (lisensi SIL OFL, lihat fonts/OFL.txt)
 ```
 
 Tidak butuh build tool. Untuk mencoba di komputer: `python3 -m http.server` lalu buka `http://localhost:8000`.

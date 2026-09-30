@@ -18,6 +18,12 @@ const MONTHS = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 const DAYS = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
+const ICON = {
+  check: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  x: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  alert: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v7M12 17.5v.5"/></svg>',
+};
+
 const pad = (n) => String(n).padStart(2, '0');
 const toISO = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const todayISO = () => toISO(new Date());
@@ -258,9 +264,9 @@ function expenseByCategory(ym) {
 }
 function budgetStatus(spent, limit) {
   const pct = limit > 0 ? spent / limit : 0;
-  if (pct > 1) return { cls: 'critical', label: 'Melebihi', icon: '✕', pct };
-  if (pct >= 0.8) return { cls: 'warning', label: 'Hampir habis', icon: '!', pct };
-  return { cls: 'good', label: 'Aman', icon: '✓', pct };
+  if (pct > 1) return { cls: 'critical', label: 'Melebihi', icon: ICON.x, pct };
+  if (pct >= 0.8) return { cls: 'warning', label: 'Hampir habis', icon: ICON.alert, pct };
+  return { cls: 'good', label: 'Aman', icon: ICON.check, pct };
 }
 const sortTx = (a, b) => (b.date.localeCompare(a.date)) || ((b.createdAt || b.row || 0) - (a.createdAt || a.row || 0));
 
@@ -314,8 +320,8 @@ function renderHome() {
     else if (s.cls === 'warning') near.push(catById(cid).name);
   }
   const alerts = [];
-  if (over.length) alerts.push(`<div class="alert"><span class="status critical"><i class="dot"></i>✕ Melebihi</span><div>Budget terlampaui: <strong>${esc(over.join(', '))}</strong></div></div>`);
-  if (near.length) alerts.push(`<div class="alert" style="border-left-color:var(--warning);background:var(--surface)"><span class="status warning"><i class="dot"></i>! Hampir</span><div>Hampir habis: <strong>${esc(near.join(', '))}</strong></div></div>`);
+  if (over.length) alerts.push(`<div class="alert"><span class="status critical"><i class="dot"></i>${ICON.x} Melebihi</span><div>Budget terlampaui: <strong>${esc(over.join(', '))}</strong></div></div>`);
+  if (near.length) alerts.push(`<div class="alert" style="border-left-color:var(--warning);background:var(--surface)"><span class="status warning"><i class="dot"></i>${ICON.alert} Hampir</span><div>Hampir habis: <strong>${esc(near.join(', '))}</strong></div></div>`);
   $('#budgetAlert').innerHTML = alerts.join('');
   $('#budgetAlert').style.display = alerts.length ? 'flex' : 'none';
   $('#budgetAlert').style.flexDirection = 'column';
@@ -525,7 +531,7 @@ function renderBudget() {
     <div class="hero-value" style="font-size:24px">${fmt(totalSpentBudgeted)} <span class="muted" style="font-size:15px;font-weight:500">/ ${fmt(totalLimit)}</span></div>
     <div class="progress ${st.cls}"><i style="width:${Math.min(100, st.pct * 100)}%"></i></div>
     <div class="b-meta"><span>${remain >= 0 ? 'Sisa ' + fmt(remain) : 'Lebih ' + fmt(-remain)}</span>
-      <span>${isCurrent && remain > 0 && daysLeft > 0 ? '≈ ' + fmt(remain / daysLeft) + '/hari' : ''}</span></div>
+      <span>${isCurrent && remain > 0 && daysLeft > 0 ? 'sekitar ' + fmt(remain / daysLeft) + '/hari' : ''}</span></div>
     ${totalSpentAll > totalSpentBudgeted ? `<p class="muted" style="margin-bottom:0">+ ${fmt(totalSpentAll - totalSpentBudgeted)} pengeluaran di kategori tanpa budget.</p>` : ''}`;
 
   $('#budgetList').innerHTML = entries
@@ -568,12 +574,12 @@ function renderGoals() {
       const months = (dl.getFullYear() - now.getFullYear()) * 12 + (dl.getMonth() - now.getMonth());
       const rest = g.target - g.saved;
       if (dl < parseISO(todayISO())) hint = `⏰ Tenggat ${esc(dateLabel(g.deadline))} sudah lewat · kurang ${fmt(rest)}`;
-      else hint = `Tenggat ${esc(dateLabel(g.deadline))} · perlu ≈ ${fmt(rest / Math.max(1, months))}/bulan`;
+      else hint = `Tenggat ${esc(dateLabel(g.deadline))} · perlu sekitar ${fmt(rest / Math.max(1, months))}/bulan`;
     } else hint = `Kurang ${fmt(g.target - g.saved)}`;
     return `<div class="card goal-item">
       <div class="b-head">
         <div class="b-title"><span>🐷</span><span>${esc(g.name)}</span></div>
-        ${done ? '<span class="status good"><i class="dot"></i>✓ Tercapai</span>' : `<span class="tag">${Math.round(pct * 100)}%</span>`}
+        ${done ? `<span class="status good"><i class="dot"></i>${ICON.check} Tercapai</span>` : `<span class="tag">${Math.round(pct * 100)}%</span>`}
       </div>
       <div class="progress ${done ? 'good' : ''}"><i style="width:${Math.min(100, pct * 100)}%"></i></div>
       <div class="b-meta"><span>${fmt(g.saved)} / ${fmt(g.target)}</span></div>
@@ -633,7 +639,7 @@ async function connectSheet(e) {
   }
   if (!token) { err.textContent = 'Isi kode rahasia (TOKEN) yang kamu tulis di Apps Script.'; return; }
   const local = state.transactions.length;
-  if (local && !confirm(`${local} transaksi yang ada di HP ini akan diganti dengan data dari Google Sheet. Buat cadangan dulu kalau perlu. Lanjut?`)) return;
+  if (local && !(await ask(`${local} transaksi yang ada di HP ini akan diganti dengan data dari Google Sheet. Buat cadangan dulu kalau perlu. Lanjut?`, { ok: 'Lanjut' }))) return;
 
   const backup = JSON.stringify(state);
   state.settings.sheet = { url, token, lastSync: 0 };
@@ -652,12 +658,12 @@ async function connectSheet(e) {
   render();
 }
 
-function disconnectSheet() {
+async function disconnectSheet() {
   const pending = pendingTx().length;
   const msg = pending
     ? `Masih ada ${pending} transaksi yang belum terkirim ke Sheet dan akan tetap tersimpan di HP saja. Putuskan sambungan?`
     : 'Putuskan sambungan ke Google Sheet? Data terakhir tetap tersimpan di HP ini, tapi tidak akan tersinkron lagi.';
-  if (!confirm(msg)) return;
+  if (!(await ask(msg, { ok: 'Putuskan', danger: true }))) return;
   state.settings.sheet = null;
   state.transactions.forEach((t) => { delete t.pending; delete t.row; });
   state = normalize(state);
@@ -677,6 +683,27 @@ document.addEventListener('input', (e) => {
 const setMoney = (el, n) => { el.value = n ? numFmt.format(n) : ''; };
 
 /* ================= Dialogs ================= */
+// In-app replacement for window.confirm(), so every message uses the app font and styling.
+function ask(message, { ok = 'Ya', danger = false } = {}) {
+  const d = $('#askDialog');
+  $('#askMessage').textContent = message;
+  const okBtn = $('#askOk');
+  okBtn.textContent = ok;
+  okBtn.className = 'btn ' + (danger ? 'btn-danger-solid' : 'btn-primary');
+  return new Promise((resolve) => {
+    const done = (v) => { d.removeEventListener('close', onClose); d.onclick = null; if (d.open) d.close(); resolve(v); };
+    const onClose = () => done(false);
+    d.addEventListener('close', onClose);
+    d.onclick = (e) => {
+      const b = e.target.closest('[data-ask]');
+      if (b) done(b.dataset.ask === 'yes');
+      else if (e.target === d) done(false);
+    };
+    openDialog(d);
+    okBtn.focus();
+  });
+}
+
 function openDialog(d) {
   hideTooltip();
   if (typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open', '');
@@ -749,7 +776,7 @@ $('#txForm').addEventListener('submit', async (e) => {
   if (sheetMode() && pendingTx().length) syncNow({ quiet: true });
 });
 $('#txDelete').addEventListener('click', async () => {
-  if (!editingTx || !confirm('Hapus transaksi ini?')) return;
+  if (!editingTx || !(await ask('Hapus transaksi ini?', { ok: 'Hapus', danger: true }))) return;
   if (sheetMode() && !editingTx.pending) {
     const ok = await withBusy($('#txForm'), () => sheetApi({ action: 'delete', row: editingTx.row, orig: txPayload(editingTx) }));
     if (!ok) return;
@@ -835,8 +862,8 @@ $('#goalForm').addEventListener('submit', (e) => {
   toast('Target disimpan');
   render();
 });
-$('#goalDelete').addEventListener('click', () => {
-  if (!editingGoal || !confirm(`Hapus target "${editingGoal.name}"?`)) return;
+$('#goalDelete').addEventListener('click', async () => {
+  if (!editingGoal || !(await ask(`Hapus target "${editingGoal.name}"?`, { ok: 'Hapus', danger: true }))) return;
   state.goals = state.goals.filter((g) => g !== editingGoal);
   save();
   closeDialog($('#goalDialog'));
@@ -918,13 +945,13 @@ $('#catForm').addEventListener('submit', (e) => {
   toast('Kategori disimpan');
   render();
 });
-$('#catDelete').addEventListener('click', () => {
+$('#catDelete').addEventListener('click', async () => {
   const c = editingCat;
   if (!c) return;
   const fallback = c.type === 'income' ? 'other-inc' : 'other-exp';
   const used = state.transactions.filter((t) => t.category === c.id).length;
   const msg = used ? `Hapus kategori "${c.name}"? ${used} transaksi akan dipindah ke "Lainnya".` : `Hapus kategori "${c.name}"?`;
-  if (!confirm(msg)) return;
+  if (!(await ask(msg, { ok: 'Hapus', danger: true }))) return;
   state.transactions.forEach((t) => { if (t.category === c.id) t.category = fallback; });
   delete state.budgets[c.id];
   state.categories = state.categories.filter((x) => x !== c);
@@ -967,13 +994,13 @@ $('#importFile').addEventListener('change', async (e) => {
     if (!data || !Array.isArray(data.transactions)) throw new Error('format');
     if (sheetMode()) {
       // Transactions live in the Sheet; only restore what the app keeps locally.
-      if (!confirm('Terhubung ke Google Sheet: hanya budget, target tabungan, dan tema yang dipulihkan. Transaksi tetap dari Sheet. Lanjut?')) return;
+      if (!(await ask('Terhubung ke Google Sheet: hanya budget, target tabungan, dan tema yang dipulihkan. Transaksi tetap dari Sheet. Lanjut?', { ok: 'Pulihkan' }))) return;
       const restored = normalize(data);
       state.budgets = restored.budgets;
       state.goals = restored.goals;
       state.settings.theme = restored.settings.theme;
     } else {
-      if (!confirm(`Pulihkan ${data.transactions.length} transaksi dari cadangan? Data saat ini akan diganti.`)) return;
+      if (!(await ask(`Pulihkan ${data.transactions.length} transaksi dari cadangan? Data saat ini akan diganti.`, { ok: 'Pulihkan' }))) return;
       state = normalize({ ...data, settings: { ...(data.settings || {}), sheet: null } });
     }
     save();
@@ -1020,7 +1047,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 });
 window.addEventListener('appinstalled', () => { deferredInstall = null; toast('Aplikasi terpasang 🎉'); render(); });
 async function promptInstall() {
-  if (!deferredInstall) { toast('Gunakan menu browser → "Tambahkan ke layar utama"'); return; }
+  if (!deferredInstall) { toast('Gunakan menu browser, lalu pilih "Tambahkan ke layar utama"'); return; }
   deferredInstall.prompt();
   await deferredInstall.userChoice.catch(() => {});
   deferredInstall = null;
@@ -1047,15 +1074,16 @@ document.addEventListener('click', (e) => {
     case 'sync': syncNow(); break;
     case 'disconnect-sheet': disconnectSheet(); break;
     case 'dismiss-install': state.settings.installDismissed = true; save(); render(); break;
-    case 'reset':
-      if (confirm(sheetMode()
-        ? 'Hapus semua data di HP ini dan putuskan dari Google Sheet? Isi Google Sheet TIDAK ikut terhapus.'
-        : 'Hapus SEMUA data (transaksi, budget, tabungan, kategori)? Tindakan ini tidak bisa dibatalkan.')) {
-        state = defaults(); save(); applyTheme(); toast('Semua data dihapus'); render();
-      }
-      break;
+    case 'reset': resetAll(); break;
   }
 });
+async function resetAll() {
+  const ok = await ask(sheetMode()
+    ? 'Hapus semua data di HP ini dan putuskan dari Google Sheet? Isi Google Sheet TIDAK ikut terhapus.'
+    : 'Hapus SEMUA data (transaksi, budget, tabungan, kategori)? Tindakan ini tidak bisa dibatalkan.', { ok: 'Hapus semua', danger: true });
+  if (!ok) return;
+  state = defaults(); save(); applyTheme(); toast('Semua data dihapus'); render();
+}
 $('#fab').addEventListener('click', () => openTx());
 $('#sheetConnect').addEventListener('submit', connectSheet);
 $('#syncBtn').addEventListener('click', () => syncNow());

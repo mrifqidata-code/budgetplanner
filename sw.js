@@ -1,6 +1,6 @@
 // Service worker: makes the app work offline.
 // Bump CACHE when any app file changes so phones pick up the new version.
-const CACHE = 'budgetplanner-v2';
+const CACHE = 'budgetplanner-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -11,6 +11,14 @@ const ASSETS = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',
+  './fonts/poppins-400.woff2',
+  './fonts/poppins-500.woff2',
+  './fonts/poppins-600.woff2',
+  './fonts/poppins-700.woff2',
+  './fonts/poppins-ext-400.woff2',
+  './fonts/poppins-ext-500.woff2',
+  './fonts/poppins-ext-600.woff2',
+  './fonts/poppins-ext-700.woff2',
 ];
 
 self.addEventListener('install', (event) => {

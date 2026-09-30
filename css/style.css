@@ -1,3 +1,13 @@
+/* ===== Font: Poppins (self-hosted so it also works offline; SIL OFL, see fonts/OFL.txt) ===== */
+@font-face { font-family: "Poppins"; font-style: normal; font-weight: 400; font-display: swap; src: url(../fonts/poppins-400.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "Poppins"; font-style: normal; font-weight: 500; font-display: swap; src: url(../fonts/poppins-500.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "Poppins"; font-style: normal; font-weight: 600; font-display: swap; src: url(../fonts/poppins-600.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "Poppins"; font-style: normal; font-weight: 700; font-display: swap; src: url(../fonts/poppins-700.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "Poppins"; font-style: normal; font-weight: 400; font-display: swap; src: url(../fonts/poppins-ext-400.woff2) format("woff2"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: "Poppins"; font-style: normal; font-weight: 500; font-display: swap; src: url(../fonts/poppins-ext-500.woff2) format("woff2"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: "Poppins"; font-style: normal; font-weight: 600; font-display: swap; src: url(../fonts/poppins-ext-600.woff2) format("woff2"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: "Poppins"; font-style: normal; font-weight: 700; font-display: swap; src: url(../fonts/poppins-ext-700.woff2) format("woff2"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+
 /* ===== Tokens ===== */
 :root {
   color-scheme: light;
@@ -20,6 +30,7 @@
   --neg-text: #b42828;
   --danger-bg: #fbeaea;
   --shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 2px 8px rgba(0, 0, 0, .04);
+  --font: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --radius: 16px;
   --nav-h: 64px;
   --safe-b: env(safe-area-inset-bottom, 0px);
@@ -73,14 +84,19 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font: 14px/1.5 var(--font);
   -webkit-tap-highlight-color: transparent;
   overflow-x: hidden;
 }
 h1, h2, h3 { margin: 0; line-height: 1.25; }
-h2 { font-size: 16px; font-weight: 650; }
+h2 { font-size: 16px; font-weight: 600; }
 p { margin: .5em 0; }
-button, input, select { font: inherit; color: inherit; }
+button, input, select, textarea, option, dialog, svg text { font-family: var(--font); }
+button, input, select, textarea { font-size: inherit; font-weight: inherit; line-height: inherit; color: inherit; }
+.ico { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; flex: none; vertical-align: -0.125em; }
+.icon-btn .ico { width: 20px; height: 20px; }
+.status .ico { width: 12px; height: 12px; stroke-width: 3; }
+.ask p { margin: 4px 0 0; font-size: 15px; }
 button { cursor: pointer; }
 .muted { color: var(--text-2); font-size: 14px; }
 [hidden] { display: none !important; }
@@ -103,7 +119,7 @@ button { cursor: pointer; }
 @media (max-width: 380px) { .app-title { font-size: 18px; } .month-label { padding: 6px 8px; font-size: 13px; } }
 .month-switch { display: flex; align-items: center; gap: 2px; }
 .topbar-inner .app-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sync-btn { position: relative; color: var(--accent); font-size: 22px; }
+.sync-btn { position: relative; color: var(--accent); }
 .sync-btn.spinning { animation: spin 1s linear infinite; }
 .sync-btn.has-error { color: var(--critical); }
 .sync-btn[data-badge]:not([data-badge=""])::after {
@@ -140,7 +156,7 @@ main {
 
 /* Hero + stats */
 .hero-label, .stat-label { color: var(--text-2); font-size: 13px; }
-.hero-value { font-size: 30px; font-weight: 750; letter-spacing: -.5px; margin-top: 2px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.hero-value { font-size: 30px; font-weight: 700; letter-spacing: -.5px; margin-top: 2px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .hero-sub { color: var(--text-2); font-size: 13px; margin-top: 4px; }
 .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .stat { padding: 14px; }
@@ -160,8 +176,8 @@ main {
 .chart-wrap svg { display: block; width: 100%; height: auto; overflow: visible; }
 .chart-wrap .grid-line { stroke: var(--grid); stroke-width: 1; }
 .chart-wrap .axis-line { stroke: var(--border); stroke-width: 1; }
-.chart-wrap .tick { fill: var(--text-3); font-size: 11px; }
-.chart-wrap .tick.current { fill: var(--text); font-weight: 650; }
+.chart-wrap .tick { fill: var(--text-3); font-size: 11px; font-family: var(--font); }
+.chart-wrap .tick.current { fill: var(--text); font-weight: 600; }
 .chart-wrap .bar-in { fill: var(--series-1); }
 .chart-wrap .bar-out { fill: var(--series-2); }
 .chart-wrap .group { transition: opacity .15s; }
@@ -174,7 +190,7 @@ main {
   box-shadow: 0 4px 16px rgba(0, 0, 0, .12);
   padding: 8px 10px; font-size: 13px; min-width: 170px;
 }
-.tooltip .tt-title { font-weight: 650; margin-bottom: 4px; }
+.tooltip .tt-title { font-weight: 600; margin-bottom: 4px; }
 .tooltip .tt-row { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
 .tooltip .tt-row span:first-child { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); }
 .tooltip .tt-row b { font-variant-numeric: tabular-nums; font-weight: 600; }
@@ -211,7 +227,7 @@ main {
 .tx-main { min-width: 0; }
 .tx-cat { font-weight: 600; font-size: 14px; }
 .tx-note { color: var(--text-2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tx-amt { font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tx-amt { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .summary-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; padding: 12px; }
 .summary-row div { min-width: 0; }
 .summary-row small { display: block; color: var(--text-2); font-size: 12px; }
@@ -277,6 +293,8 @@ main {
 .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .btn-primary:hover { background: var(--accent); filter: brightness(1.08); }
 .btn-danger { color: var(--critical); }
+.btn-danger-solid { background: var(--critical); border-color: var(--critical); color: #fff; }
+.btn-danger-solid:hover { background: var(--critical); filter: brightness(1.08); }
 .btn-col { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 .link-btn { border: 0; background: transparent; color: var(--accent); font-weight: 600; font-size: 14px; padding: 4px; }
 
