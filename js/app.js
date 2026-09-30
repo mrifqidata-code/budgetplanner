@@ -602,7 +602,7 @@ function renderGoals() {
     } else hint = `Kurang ${fmt(g.target - g.saved)}`;
     return `<div class="card goal-item">
       <div class="b-head">
-        <div class="b-title"><span>🐷</span><span>${esc(g.name)}</span></div>
+        <div class="b-title"><span>🐮️</span><span>${esc(g.name)}</span></div>
         ${done ? `<span class="status good"><i class="dot"></i>${ICON.check} Tercapai</span>` : `<span class="tag">${Math.round(pct * 100)}%</span>`}
       </div>
       <div class="progress ${done ? 'good' : ''}"><i style="width:${Math.min(100, pct * 100)}%"></i></div>
