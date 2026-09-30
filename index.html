@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Budget Planner</title>
+  <meta name="description" content="Catat pemasukan & pengeluaran, atur budget, dan pantau target tabungan.">
+  <meta name="theme-color" content="#f4f3f0" id="themeColor">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Budget">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <h1 class="app-title" id="viewTitle">Beranda</h1>
+      <div class="month-switch" role="group" aria-label="Pilih bulan">
+        <button class="icon-btn" id="prevMonth" aria-label="Bulan sebelumnya">‹</button>
+        <button class="month-label" id="monthLabel" title="Kembali ke bulan ini"></button>
+        <button class="icon-btn" id="nextMonth" aria-label="Bulan berikutnya">›</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="app">
+    <!-- BERANDA -->
+    <section class="view" data-view="home">
+      <div class="install-banner" id="installBanner" hidden>
+        <span>📲 Pasang aplikasi ini di HP kamu</span>
+        <button class="btn btn-small btn-primary" data-action="install">Pasang</button>
+        <button class="icon-btn" data-action="dismiss-install" aria-label="Tutup">✕</button>
+      </div>
+
+      <div class="card hero">
+        <div class="hero-label">Saldo total</div>
+        <div class="hero-value" id="totalBalance">Rp 0</div>
+        <div class="hero-sub" id="heroSub"></div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="card stat">
+          <div class="stat-label">Pemasukan</div>
+          <div class="stat-value pos" id="monthIncome">Rp 0</div>
+        </div>
+        <div class="card stat">
+          <div class="stat-label">Pengeluaran</div>
+          <div class="stat-value neg" id="monthExpense">Rp 0</div>
+        </div>
+      </div>
+
+      <div id="budgetAlert"></div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Tren 6 bulan</h2>
+          <div class="legend" aria-hidden="true">
+            <span><i class="swatch s1"></i>Pemasukan</span>
+            <span><i class="swatch s2"></i>Pengeluaran</span>
+          </div>
+        </div>
+        <div class="chart-wrap" id="trendChart"></div>
+        <details class="table-toggle">
+          <summary>Lihat sebagai tabel</summary>
+          <div id="trendTable"></div>
+        </details>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Pengeluaran per kategori</h2>
+        </div>
+        <div id="categoryBreakdown"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Transaksi terakhir</h2>
+          <button class="link-btn" data-goto="tx">Lihat semua</button>
+        </div>
+        <div id="recentTx"></div>
+      </div>
+    </section>
+
+    <!-- TRANSAKSI -->
+    <section class="view" data-view="tx" hidden>
+      <div class="card summary-row" id="txSummary"></div>
+      <div class="toolbar">
+        <div class="chips" role="tablist" aria-label="Filter tipe">
+          <button class="chip active" data-filter="all">Semua</button>
+          <button class="chip" data-filter="income">Pemasukan</button>
+          <button class="chip" data-filter="expense">Pengeluaran</button>
+        </div>
+        <input type="search" id="txSearch" class="input" placeholder="Cari catatan atau kategori…" aria-label="Cari transaksi">
+      </div>
+      <div id="txList"></div>
+    </section>
+
+    <!-- BUDGET -->
+    <section class="view" data-view="budget" hidden>
+      <div class="card" id="budgetTotal"></div>
+      <div class="section-head">
+        <h2>Budget per kategori</h2>
+        <button class="btn btn-small" data-action="edit-budgets">Atur budget</button>
+      </div>
+      <div id="budgetList"></div>
+    </section>
+
+    <!-- TABUNGAN -->
+    <section class="view" data-view="goals" hidden>
+      <div class="card" id="goalsTotal"></div>
+      <div class="section-head">
+        <h2>Target tabungan</h2>
+        <button class="btn btn-small btn-primary" data-action="new-goal">+ Target baru</button>
+      </div>
+      <div id="goalList"></div>
+    </section>
+
+    <!-- LAINNYA -->
+    <section class="view" data-view="more" hidden>
+      <div class="card">
+        <h2>Tampilan</h2>
+        <label class="field">
+          <span>Tema</span>
+          <select id="themeSelect" class="input">
+            <option value="auto">Ikuti sistem</option>
+            <option value="light">Terang</option>
+            <option value="dark">Gelap</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Kategori</h2>
+          <button class="btn btn-small" data-action="new-category">+ Kategori</button>
+        </div>
+        <div id="categoryList"></div>
+      </div>
+
+      <div class="card">
+        <h2>Data &amp; cadangan</h2>
+        <p class="muted">Data tersimpan di perangkat ini saja (di browser). Rutin buat cadangan supaya tidak hilang, dan pakai file cadangan untuk memindahkan data ke HP lain.</p>
+        <div class="btn-col">
+          <button class="btn" data-action="export-json">⬇️ Cadangkan data (JSON)</button>
+          <button class="btn" data-action="export-csv">📄 Ekspor transaksi (CSV)</button>
+          <label class="btn">⬆️ Pulihkan dari cadangan
+            <input type="file" id="importFile" accept="application/json,.json" hidden>
+          </label>
+          <button class="btn btn-danger" data-action="reset">🗑️ Hapus semua data</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Pasang di HP</h2>
+        <button class="btn btn-primary" data-action="install" id="installBtn" hidden>📲 Pasang aplikasi</button>
+        <p class="muted"><strong>Android (Chrome):</strong> menu ⋮ → <em>Instal aplikasi</em> / <em>Tambahkan ke layar utama</em>.</p>
+        <p class="muted"><strong>iPhone (Safari):</strong> tombol Bagikan <span aria-hidden="true">⎋</span> → <em>Tambahkan ke Layar Utama</em>.</p>
+        <p class="muted">Setelah terpasang, aplikasi tetap bisa dipakai tanpa internet.</p>
+      </div>
+    </section>
+  </main>
+
+  <button class="fab" id="fab" aria-label="Tambah transaksi">+</button>
+
+  <nav class="bottom-nav" aria-label="Navigasi utama">
+    <button data-goto="home" class="active"><span class="nav-ico">🏠</span><span>Beranda</span></button>
+    <button data-goto="tx"><span class="nav-ico">📋</span><span>Transaksi</span></button>
+    <button data-goto="budget"><span class="nav-ico">🎯</span><span>Budget</span></button>
+    <button data-goto="goals"><span class="nav-ico">🐷</span><span>Tabungan</span></button>
+    <button data-goto="more"><span class="nav-ico">⚙️</span><span>Lainnya</span></button>
+  </nav>
+
+  <!-- Dialog: transaksi -->
+  <dialog id="txDialog" class="sheet">
+    <form method="dialog" id="txForm" novalidate>
+      <div class="sheet-head">
+        <h2 id="txDialogTitle">Tambah transaksi</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Tutup">✕</button>
+      </div>
+      <div class="segmented" role="radiogroup" aria-label="Tipe transaksi">
+        <label><input type="radio" name="type" value="expense" checked><span>Pengeluaran</span></label>
+        <label><input type="radio" name="type" value="income"><span>Pemasukan</span></label>
+      </div>
+      <label class="field">
+        <span>Nominal</span>
+        <div class="money-wrap"><span>Rp</span><input name="amount" class="input money" inputmode="numeric" autocomplete="off" placeholder="0" required></div>
+      </label>
+      <label class="field">
+        <span>Kategori</span>
+        <select name="category" class="input" required></select>
+      </label>
+      <label class="field">
+        <span>Tanggal</span>
+        <input name="date" type="date" class="input" required>
+      </label>
+      <label class="field">
+        <span>Catatan (opsional)</span>
+        <input name="note" class="input" maxlength="120" placeholder="mis. makan siang">
+      </label>
+      <p class="form-error" id="txError" role="alert"></p>
+      <div class="sheet-actions">
+        <button type="button" class="btn btn-danger" id="txDelete" hidden>Hapus</button>
+        <button type="submit" class="btn btn-primary">Simpan</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Dialog: budget -->
+  <dialog id="budgetDialog" class="sheet">
+    <form method="dialog" id="budgetForm">
+      <div class="sheet-head">
+        <h2>Atur budget bulanan</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Tutup">✕</button>
+      </div>
+      <p class="muted">Batas pengeluaran per bulan untuk tiap kategori. Kosongkan jika tidak ingin dibatasi.</p>
+      <div id="budgetFields"></div>
+      <div class="sheet-actions">
+        <button type="submit" class="btn btn-primary">Simpan</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Dialog: target tabungan -->
+  <dialog id="goalDialog" class="sheet">
+    <form method="dialog" id="goalForm" novalidate>
+      <div class="sheet-head">
+        <h2 id="goalDialogTitle">Target baru</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Tutup">✕</button>
+      </div>
+      <label class="field">
+        <span>Nama target</span>
+        <input name="name" class="input" maxlength="60" placeholder="mis. Dana darurat" required>
+      </label>
+      <label class="field">
+        <span>Target nominal</span>
+        <div class="money-wrap"><span>Rp</span><input name="target" class="input money" inputmode="numeric" placeholder="0" required></div>
+      </label>
+      <label class="field">
+        <span>Sudah terkumpul</span>
+        <div class="money-wrap"><span>Rp</span><input name="saved" class="input money" inputmode="numeric" placeholder="0"></div>
+      </label>
+      <label class="field">
+        <span>Tenggat (opsional)</span>
+        <input name="deadline" type="date" class="input">
+      </label>
+      <p class="form-error" id="goalError" role="alert"></p>
+      <div class="sheet-actions">
+        <button type="button" class="btn btn-danger" id="goalDelete" hidden>Hapus</button>
+        <button type="submit" class="btn btn-primary">Simpan</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Dialog: setoran -->
+  <dialog id="depositDialog" class="sheet">
+    <form method="dialog" id="depositForm" novalidate>
+      <div class="sheet-head">
+        <h2 id="depositTitle">Tambah setoran</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Tutup">✕</button>
+      </div>
+      <div class="segmented" role="radiogroup" aria-label="Jenis">
+        <label><input type="radio" name="kind" value="in" checked><span>Setor</span></label>
+        <label><input type="radio" name="kind" value="out"><span>Tarik</span></label>
+      </div>
+      <label class="field">
+        <span>Nominal</span>
+        <div class="money-wrap"><span>Rp</span><input name="amount" class="input money" inputmode="numeric" placeholder="0" required></div>
+      </label>
+      <label class="field">
+        <span>Tanggal</span>
+        <input name="date" type="date" class="input" required>
+      </label>
+      <label class="check">
+        <input type="checkbox" name="record" checked>
+        <span id="depositRecordLabel">Catat juga sebagai transaksi (mengurangi saldo)</span>
+      </label>
+      <p class="form-error" id="depositError" role="alert"></p>
+      <div class="sheet-actions">
+        <button type="submit" class="btn btn-primary">Simpan</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Dialog: kategori -->
+  <dialog id="catDialog" class="sheet">
+    <form method="dialog" id="catForm" novalidate>
+      <div class="sheet-head">
+        <h2 id="catDialogTitle">Kategori baru</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Tutup">✕</button>
+      </div>
+      <div class="segmented" role="radiogroup" aria-label="Tipe kategori">
+        <label><input type="radio" name="type" value="expense" checked><span>Pengeluaran</span></label>
+        <label><input type="radio" name="type" value="income"><span>Pemasukan</span></label>
+      </div>
+      <div class="field-row">
+        <label class="field field-icon">
+          <span>Ikon</span>
+          <input name="icon" class="input" maxlength="4" placeholder="🏷️">
+        </label>
+        <label class="field">
+          <span>Nama</span>
+          <input name="name" class="input" maxlength="40" required>
+        </label>
+      </div>
+      <p class="form-error" id="catError" role="alert"></p>
+      <div class="sheet-actions">
+        <button type="button" class="btn btn-danger" id="catDelete" hidden>Hapus</button>
+        <button type="submit" class="btn btn-primary">Simpan</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="tooltip" id="tooltip" role="status" hidden></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
