@@ -1,6 +1,6 @@
 // Service worker: makes the app work offline.
 // Bump CACHE when any app file changes so phones pick up the new version.
-const CACHE = 'budgetplanner-v1';
+const CACHE = 'budgetplanner-v2';
 const ASSETS = [
   './',
   './index.html',

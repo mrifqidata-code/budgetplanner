@@ -19,6 +19,7 @@
   <header class="topbar">
     <div class="topbar-inner">
       <h1 class="app-title" id="viewTitle">Beranda</h1>
+      <button class="icon-btn sync-btn" id="syncBtn" aria-label="Sinkron dengan Google Sheet" hidden>⟳</button>
       <div class="month-switch" role="group" aria-label="Pilih bulan">
         <button class="icon-btn" id="prevMonth" aria-label="Bulan sebelumnya">‹</button>
         <button class="month-label" id="monthLabel" title="Kembali ke bulan ini"></button>
@@ -77,6 +78,13 @@
         <div id="categoryBreakdown"></div>
       </div>
 
+      <div class="card" id="sourceCard" hidden>
+        <div class="card-head">
+          <h2>Pengeluaran per sumber dana</h2>
+        </div>
+        <div id="sourceBreakdown"></div>
+      </div>
+
       <div class="card">
         <div class="card-head">
           <h2>Transaksi terakhir</h2>
@@ -95,7 +103,10 @@
           <button class="chip" data-filter="income">Pemasukan</button>
           <button class="chip" data-filter="expense">Pengeluaran</button>
         </div>
-        <input type="search" id="txSearch" class="input" placeholder="Cari catatan atau kategori…" aria-label="Cari transaksi">
+        <div class="toolbar-row">
+          <input type="search" id="txSearch" class="input" placeholder="Cari catatan atau kategori…" aria-label="Cari transaksi">
+          <select id="txSource" class="input" aria-label="Filter sumber dana"></select>
+        </div>
       </div>
       <div id="txList"></div>
     </section>
@@ -122,6 +133,32 @@
 
     <!-- LAINNYA -->
     <section class="view" data-view="more" hidden>
+      <div class="card" id="sheetCard">
+        <h2>Sinkron Google Sheet</h2>
+        <form id="sheetConnect" class="sheet-connect" novalidate>
+          <p class="muted">Hubungkan ke Google Sheet kamu supaya data selalu sama di Sheet dan di aplikasi. Transaksi yang dicatat di HP langsung masuk ke Sheet.
+            Ikuti <a href="https://github.com/mrifqidata-code/budgetplanner#sinkron-dengan-google-sheet" target="_blank" rel="noopener">panduan pemasangan Apps Script</a> dulu.</p>
+          <label class="field">
+            <span>URL Web App</span>
+            <input name="url" class="input" type="url" inputmode="url" autocomplete="off" placeholder="https://script.google.com/macros/s/…/exec">
+          </label>
+          <label class="field">
+            <span>Kode rahasia (TOKEN)</span>
+            <input name="token" class="input" type="password" autocomplete="off">
+          </label>
+          <p class="form-error" id="sheetError" role="alert"></p>
+          <button type="submit" class="btn btn-primary">Hubungkan</button>
+          <p class="muted" style="margin-bottom:0">URL dan kode rahasia hanya disimpan di HP ini.</p>
+        </form>
+        <div id="sheetStatus" hidden>
+          <div id="sheetInfo"></div>
+          <div class="btn-col">
+            <button class="btn btn-primary" data-action="sync">⟳ Sinkron sekarang</button>
+            <button class="btn btn-danger" data-action="disconnect-sheet">Putuskan sambungan</button>
+          </div>
+        </div>
+      </div>
+
       <div class="card">
         <h2>Tampilan</h2>
         <label class="field">
@@ -144,7 +181,7 @@
 
       <div class="card">
         <h2>Data &amp; cadangan</h2>
-        <p class="muted">Data tersimpan di perangkat ini saja (di browser). Rutin buat cadangan supaya tidak hilang, dan pakai file cadangan untuk memindahkan data ke HP lain.</p>
+        <p class="muted" id="dataNote"></p>
         <div class="btn-col">
           <button class="btn" data-action="export-json">⬇️ Cadangkan data (JSON)</button>
           <button class="btn" data-action="export-csv">📄 Ekspor transaksi (CSV)</button>
@@ -194,10 +231,16 @@
         <span>Kategori</span>
         <select name="category" class="input" required></select>
       </label>
-      <label class="field">
-        <span>Tanggal</span>
-        <input name="date" type="date" class="input" required>
-      </label>
+      <div class="field-row two">
+        <label class="field">
+          <span>Tanggal</span>
+          <input name="date" type="date" class="input" required>
+        </label>
+        <label class="field">
+          <span>Sumber dana</span>
+          <select name="source" class="input"></select>
+        </label>
+      </div>
       <label class="field">
         <span>Catatan (opsional)</span>
         <input name="note" class="input" maxlength="120" placeholder="mis. makan siang">

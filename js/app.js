@@ -56,14 +56,17 @@ const DEFAULT_CATEGORIES = [
   ['other-inc', 'income', '➕', 'Lainnya'],
 ].map(([id, type, icon, name]) => ({ id, type, icon, name, builtin: true }));
 
+const DEFAULT_SOURCES = ['Tunai', 'Rekening Bank', 'E-Wallet'];
+
 function defaults() {
   return {
     version: 1,
     transactions: [],
     categories: DEFAULT_CATEGORIES.map((c) => ({ ...c })),
+    sources: [...DEFAULT_SOURCES],
     budgets: {},
     goals: [],
-    settings: { theme: 'auto', installDismissed: false },
+    settings: { theme: 'auto', installDismissed: false, sheet: null },
   };
 }
 
@@ -72,16 +75,22 @@ function normalize(data) {
   if (!data || typeof data !== 'object') return base;
   const out = {
     version: 1,
-    transactions: Array.isArray(data.transactions) ? data.transactions.filter((t) => t && t.id && t.date && Number(t.amount) > 0) : [],
+    transactions: Array.isArray(data.transactions)
+      ? data.transactions.filter((t) => t && t.id && t.date && Number.isFinite(Number(t.amount)) && Number(t.amount) !== 0)
+      : [],
     categories: Array.isArray(data.categories) && data.categories.length ? data.categories : base.categories,
+    sources: Array.isArray(data.sources) ? data.sources.filter(Boolean) : base.sources,
     budgets: data.budgets && typeof data.budgets === 'object' ? data.budgets : {},
     goals: Array.isArray(data.goals) ? data.goals : [],
     settings: { ...base.settings, ...(data.settings || {}) },
   };
   out.transactions.forEach((t) => { t.amount = Number(t.amount); t.type = t.type === 'income' ? 'income' : 'expense'; });
-  // Make sure fallback categories always exist.
-  for (const id of ['other-exp', 'other-inc', 'savings']) {
-    if (!out.categories.some((c) => c.id === id)) out.categories.push({ ...DEFAULT_CATEGORIES.find((c) => c.id === id) });
+  if (!(out.settings.sheet && out.settings.sheet.url)) {
+    out.settings.sheet = null;
+    // Local mode relies on these fallback categories.
+    for (const id of ['other-exp', 'other-inc', 'savings']) {
+      if (!out.categories.some((c) => c.id === id)) out.categories.push({ ...DEFAULT_CATEGORIES.find((c) => c.id === id) });
+    }
   }
   return out;
 }
@@ -100,11 +109,140 @@ function save() {
 }
 
 let state = load();
-const ui = { view: 'home', month: monthOf(todayISO()), txFilter: 'all', search: '' };
+const ui = { view: 'home', month: monthOf(todayISO()), txFilter: 'all', source: '', search: '' };
 
 const catById = (id) => state.categories.find((c) => c.id === id)
-  || { id, icon: '❔', name: 'Tanpa kategori', type: 'expense' };
+  || { id, icon: id ? iconFor(id) : '❔', name: id || 'Tanpa kategori', type: 'expense' };
 const catsOf = (type) => state.categories.filter((c) => c.type === type);
+
+const ICONS = [
+  [/gaji/i, '💼'], [/bonus/i, '🎁'], [/bisnis|usaha|freelance/i, '🧑‍💻'], [/investasi|dividen/i, '📈'],
+  [/makan|belanja harian|groceries/i, '🍜'], [/tagihan|listrik|air|internet|pulsa/i, '💡'],
+  [/transport|bensin|parkir|tol/i, '🚗'], [/pendidikan|sekolah|kursus/i, '📚'], [/keluarga/i, '👨‍👩‍👧'],
+  [/hiburan|rekreasi|liburan/i, '🎬'], [/belanja online|shopee|tokopedia/i, '🛒'], [/belanja/i, '🛍️'],
+  [/tabungan/i, '💰'], [/cicilan|utang|hutang|kredit|paylater/i, '💳'], [/kopi|coffee/i, '☕'],
+  [/rokok/i, '🚬'], [/game/i, '🎮'], [/perawatan|salon|skincare/i, '💆'], [/kesehatan|obat|dokter/i, '💊'],
+  [/rumah|kos|sewa/i, '🏠'], [/sosial|donasi|zakat|sedekah/i, '🤝'], [/lain/i, '📦'],
+];
+function iconFor(name) {
+  const hit = ICONS.find(([re]) => re.test(name));
+  return hit ? hit[1] : '🏷️';
+}
+
+const sheetMode = () => !!(state.settings.sheet && state.settings.sheet.url);
+const pendingTx = () => state.transactions.filter((t) => t.pending);
+function sourcesList() {
+  const set = new Set(state.sources);
+  state.transactions.forEach((t) => { if (t.source) set.add(t.source); });
+  return [...set];
+}
+// Category used when a savings deposit/withdrawal is also recorded as a transaction.
+function savingsCategory(out) {
+  if (!sheetMode()) return out ? 'other-inc' : 'savings';
+  const list = catsOf(out ? 'income' : 'expense');
+  const hit = list.find((c) => (out ? /lain/i : /tabungan|investasi/i).test(c.name));
+  return (hit || list[0] || { id: out ? 'Pemasukan Lainnya' : 'Tabungan & Investasi' }).id;
+}
+
+/* ================= Google Sheet sync ================= */
+const sync = { busy: false, error: '', lastTry: 0 };
+
+class NetworkError extends Error {}
+
+async function sheetApi(payload) {
+  const { url, token } = state.settings.sheet || {};
+  if (!url) throw new Error('Belum terhubung ke Google Sheet.');
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 45000);
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      // text/plain keeps this a "simple" request, which Apps Script accepts without a CORS preflight.
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ token, ...payload }),
+      redirect: 'follow',
+      signal: ctrl.signal,
+    });
+  } catch (e) {
+    throw new NetworkError('Tidak ada koneksi ke Google Sheet.');
+  } finally {
+    clearTimeout(timer);
+  }
+  let data;
+  try { data = await res.json(); }
+  catch (e) { throw new Error('Respons tidak valid. Pastikan URL Web App benar dan aksesnya "Siapa saja".'); }
+  if (!data || !data.ok) throw new Error((data && data.error) || 'Gagal menghubungi Google Sheet.');
+  applySheetData(data);
+  return data;
+}
+
+function applySheetData(data) {
+  const fromSheet = (data.transactions || []).map((t) => ({
+    id: 'r' + t.row, row: t.row, date: t.date, type: t.type, category: t.category,
+    note: t.note || '', amount: Number(t.amount), source: t.source || '',
+  }));
+  const cats = [];
+  const add = (name, type) => {
+    if (name && !cats.some((c) => c.id === name && c.type === type)) cats.push({ id: name, name, type, icon: iconFor(name) });
+  };
+  (data.incomeCategories || []).forEach((n) => add(n, 'income'));
+  (data.expenseCategories || []).forEach((n) => add(n, 'expense'));
+  fromSheet.forEach((t) => { if (!cats.some((c) => c.id === t.category)) add(t.category, t.type); });
+  state.categories = cats;
+  state.sources = [...new Set([...(data.sources || []), ...fromSheet.map((t) => t.source).filter(Boolean)])];
+  state.transactions = fromSheet.concat(pendingTx());
+  state.settings.sheet.lastSync = Date.now();
+  sync.error = '';
+  save();
+}
+
+const txPayload = (t) => ({ date: t.date, type: t.type, category: t.category, note: t.note || '', amount: t.amount, source: t.source || '' });
+
+// Send queued transactions, then pull the latest data from the Sheet.
+async function syncNow({ quiet = false } = {}) {
+  if (!sheetMode() || sync.busy) return;
+  sync.busy = true;
+  sync.lastTry = Date.now();
+  renderSyncState();
+  try {
+    let pulled = false;
+    for (const t of pendingTx()) {
+      await sheetApi({ action: 'add', tx: txPayload(t) });
+      // applySheetData kept all pending items; drop the one just sent.
+      state.transactions = state.transactions.filter((x) => x.id !== t.id);
+      save();
+      pulled = true;
+    }
+    if (!pulled) await sheetApi({ action: 'read' });
+    if (!quiet) toast('Tersinkron dengan Google Sheet');
+  } catch (e) {
+    sync.error = e.message;
+    if (!quiet || !(e instanceof NetworkError)) toast('⚠️ ' + e.message);
+  } finally {
+    sync.busy = false;
+    render();
+  }
+}
+
+function renderSyncState() {
+  const btn = $('#syncBtn');
+  btn.hidden = !sheetMode();
+  btn.classList.toggle('spinning', sync.busy);
+  btn.classList.toggle('has-error', !!sync.error && !sync.busy);
+  const n = pendingTx().length;
+  btn.dataset.badge = n ? String(n) : '';
+  btn.title = sync.busy ? 'Menyinkronkan…' : sync.error ? 'Gagal sinkron: ' + sync.error : 'Sinkron dengan Google Sheet';
+}
+
+function timeAgo(ts) {
+  if (!ts) return 'belum pernah';
+  const s = Math.round((Date.now() - ts) / 1000);
+  if (s < 60) return 'baru saja';
+  if (s < 3600) return `${Math.floor(s / 60)} menit lalu`;
+  if (s < 86400) return `${Math.floor(s / 3600)} jam lalu`;
+  return dateLabel(toISO(new Date(ts)));
+}
 
 /* ================= Calculations ================= */
 const txInMonth = (ym) => state.transactions.filter((t) => monthOf(t.date) === ym);
@@ -124,27 +262,30 @@ function budgetStatus(spent, limit) {
   if (pct >= 0.8) return { cls: 'warning', label: 'Hampir habis', icon: '!', pct };
   return { cls: 'good', label: 'Aman', icon: '✓', pct };
 }
-const sortTx = (a, b) => (b.date.localeCompare(a.date)) || ((b.createdAt || 0) - (a.createdAt || 0));
+const sortTx = (a, b) => (b.date.localeCompare(a.date)) || ((b.createdAt || b.row || 0) - (a.createdAt || a.row || 0));
 
 /* ================= Rendering ================= */
 const VIEW_TITLES = { home: 'Beranda', tx: 'Transaksi', budget: 'Budget', goals: 'Tabungan', more: 'Lainnya' };
 
 function render() {
-  $('#monthLabel').textContent = monthName(ui.month);
+  const [my, mm] = ui.month.split('-').map(Number);
+  $('#monthLabel').innerHTML = `<span class="m-long">${MONTHS[mm - 1]}</span><span class="m-short">${MONTHS_SHORT[mm - 1]}</span> ${my}`;
   $('#viewTitle').textContent = VIEW_TITLES[ui.view];
   $$('.view').forEach((v) => { v.hidden = v.dataset.view !== ui.view; });
   $$('.bottom-nav button').forEach((b) => b.classList.toggle('active', b.dataset.goto === ui.view));
   $('.month-switch').style.visibility = ui.view === 'more' ? 'hidden' : '';
   $('#fab').hidden = !['home', 'tx'].includes(ui.view);
+  renderSyncState();
   ({ home: renderHome, tx: renderTx, budget: renderBudget, goals: renderGoals, more: renderMore })[ui.view]();
 }
 
 function txItemHTML(t) {
   const c = catById(t.category);
   const sign = t.type === 'income' ? '+' : '−';
-  return `<button class="tx-item" data-edit-tx="${esc(t.id)}">
+  const sub = [t.note || dateLabel(t.date), t.source].filter(Boolean).join(' · ');
+  return `<button class="tx-item${t.pending ? ' pending' : ''}" data-edit-tx="${esc(t.id)}">
     <span class="tx-ico">${esc(c.icon)}</span>
-    <span class="tx-main"><div class="tx-cat">${esc(c.name)}</div><div class="tx-note">${esc(t.note || dateLabel(t.date))}</div></span>
+    <span class="tx-main"><div class="tx-cat">${esc(c.name)}${t.pending ? ' <span class="pending-tag" title="Belum terkirim ke Google Sheet">⏳ antri</span>' : ''}</div><div class="tx-note">${esc(sub)}</div></span>
     <span class="tx-amt ${t.type === 'income' ? 'pos' : 'neg'}">${sign}${fmt(t.amount)}</span>
   </button>`;
 }
@@ -182,6 +323,7 @@ function renderHome() {
 
   renderTrend();
   renderBreakdown(spent, m.expense);
+  renderSourceBreakdown();
 
   const recent = txInMonth(ui.month).sort(sortTx).slice(0, 5);
   $('#recentTx').innerHTML = recent.length
@@ -298,6 +440,29 @@ function renderBreakdown(spent, totalExpense) {
   }).join('');
 }
 
+function renderSourceBreakdown() {
+  const map = new Map();
+  for (const t of txInMonth(ui.month)) {
+    if (t.type !== 'expense') continue;
+    const k = t.source || 'Tanpa sumber';
+    map.set(k, (map.get(k) || 0) + t.amount);
+  }
+  const rows = [...map.entries()].sort((a, b) => b[1] - a[1]);
+  $('#sourceCard').hidden = !rows.length;
+  if (!rows.length) return;
+  const total = rows.reduce((s, r) => s + r[1], 0);
+  const max = rows[0][1];
+  $('#sourceBreakdown').innerHTML = rows.map(([name, amt]) => {
+    const pct = total ? Math.round((amt / total) * 100) : 0;
+    return `<div class="cat-row" title="${esc(name)}: ${esc(fmt(amt))} (${pct}%)">
+      <span class="cat-ico">${/paylater|kredit/i.test(name) ? '💳' : /tunai|cash/i.test(name) ? '💵' : '🏦'}</span>
+      <span class="cat-name">${esc(name)}</span>
+      <span class="cat-amt">${fmt(amt)}<small>${pct}%</small></span>
+      <span class="cat-bar" aria-hidden="true"><i style="width:${Math.max(2, (amt / max) * 100)}%"></i></span>
+    </div>`;
+  }).join('');
+}
+
 function renderTx() {
   $$('.chip[data-filter]').forEach((c) => c.classList.toggle('active', c.dataset.filter === ui.txFilter));
   const monthTx = txInMonth(ui.month);
@@ -307,9 +472,17 @@ function renderTx() {
     <div><small>Pengeluaran</small><b class="neg">${fmt(m.expense)}</b></div>
     <div><small>Selisih</small><b>${m.net < 0 ? '−' : ''}${fmt(Math.abs(m.net))}</b></div>`;
 
+  const srcSel = $('#txSource');
+  const sources = sourcesList();
+  if (ui.source && !sources.includes(ui.source)) ui.source = '';
+  srcSel.innerHTML = '<option value="">Semua sumber dana</option>' + sources.map((s) => `<option>${esc(s)}</option>`).join('');
+  srcSel.value = ui.source;
+  srcSel.hidden = !sources.length;
+
   const q = ui.search.trim().toLowerCase();
   const list = monthTx
     .filter((t) => ui.txFilter === 'all' || t.type === ui.txFilter)
+    .filter((t) => !ui.source || t.source === ui.source)
     .filter((t) => !q || (t.note || '').toLowerCase().includes(q) || catById(t.category).name.toLowerCase().includes(q))
     .sort(sortTx);
 
@@ -417,13 +590,80 @@ function renderMore() {
   $('#themeSelect').value = state.settings.theme;
   const counts = new Map();
   state.transactions.forEach((t) => counts.set(t.category, (counts.get(t.category) || 0) + 1));
+  const locked = sheetMode();
   const group = (type, title) => `<div class="cat-group-title">${title}</div>` + catsOf(type).map((c) => `
     <div class="cat-setting">
-      <button data-edit-cat="${esc(c.id)}"><span class="cat-ico">${esc(c.icon)}</span><span class="cat-name">${esc(c.name)}</span></button>
+      <button ${locked ? 'disabled' : `data-edit-cat="${esc(c.id)}"`}><span class="cat-ico">${esc(c.icon)}</span><span class="cat-name">${esc(c.name)}</span></button>
       <span class="tag">${counts.get(c.id) || 0} transaksi</span>
     </div>`).join('');
-  $('#categoryList').innerHTML = group('expense', 'Pengeluaran') + group('income', 'Pemasukan');
+  $('#categoryList').innerHTML = (locked ? '<p class="muted" style="margin-top:0">Kategori & sumber dana diambil dari sheet <strong>Dropdown</strong>. Ubah di Google Sheet, lalu sinkron.</p>' : '')
+    + group('expense', 'Pengeluaran') + group('income', 'Pemasukan');
+  $('[data-action="new-category"]').hidden = locked;
+  $('#dataNote').textContent = locked
+    ? 'Transaksi tersimpan di Google Sheet. Budget dan target tabungan tersimpan di HP ini saja, jadi tetap buat cadangan sesekali.'
+    : 'Data tersimpan di perangkat ini saja (di browser). Rutin buat cadangan supaya tidak hilang, dan pakai file cadangan untuk memindahkan data ke HP lain.';
   $('#installBtn').hidden = !deferredInstall;
+  renderSheetCard();
+}
+
+function renderSheetCard() {
+  const connected = sheetMode();
+  $('#sheetConnect').hidden = connected;
+  $('#sheetStatus').hidden = !connected;
+  if (!connected) return;
+  const n = state.transactions.filter((t) => !t.pending).length;
+  const pending = pendingTx().length;
+  $('#sheetInfo').innerHTML = `
+    <div class="b-head"><strong>✅ Terhubung ke Google Sheet</strong></div>
+    <div class="muted">${n} transaksi · sinkron terakhir ${esc(timeAgo(state.settings.sheet.lastSync))}</div>
+    ${pending ? `<div class="muted">⏳ ${pending} transaksi menunggu dikirim ke Sheet</div>` : ''}
+    ${sync.error ? `<div class="form-error">⚠️ ${esc(sync.error)}</div>` : ''}`;
+}
+
+async function connectSheet(e) {
+  e.preventDefault();
+  const f = e.target;
+  const url = f.url.value.trim();
+  const token = f.token.value.trim();
+  const err = $('#sheetError');
+  err.textContent = '';
+  if (!/^https:\/\/script\.google(usercontent)?\.com\/.+/.test(url) && !/^http:\/\/localhost[:/]/.test(url)) {
+    err.textContent = 'URL harus berupa URL Web App Apps Script (https://script.google.com/macros/s/…/exec).';
+    return;
+  }
+  if (!token) { err.textContent = 'Isi kode rahasia (TOKEN) yang kamu tulis di Apps Script.'; return; }
+  const local = state.transactions.length;
+  if (local && !confirm(`${local} transaksi yang ada di HP ini akan diganti dengan data dari Google Sheet. Buat cadangan dulu kalau perlu. Lanjut?`)) return;
+
+  const backup = JSON.stringify(state);
+  state.settings.sheet = { url, token, lastSync: 0 };
+  state.transactions = [];
+  const ok = await withBusy(f, () => sheetApi({ action: 'read' }));
+  if (!ok) {
+    state = normalize(JSON.parse(backup));
+    save();
+    return;
+  }
+  // Budgets keyed by the old local category ids no longer match Sheet categories.
+  state.budgets = Object.fromEntries(Object.entries(state.budgets).filter(([id]) => state.categories.some((c) => c.id === id)));
+  save();
+  f.reset();
+  toast(`Terhubung · ${state.transactions.length} transaksi dimuat`);
+  render();
+}
+
+function disconnectSheet() {
+  const pending = pendingTx().length;
+  const msg = pending
+    ? `Masih ada ${pending} transaksi yang belum terkirim ke Sheet dan akan tetap tersimpan di HP saja. Putuskan sambungan?`
+    : 'Putuskan sambungan ke Google Sheet? Data terakhir tetap tersimpan di HP ini, tapi tidak akan tersinkron lagi.';
+  if (!confirm(msg)) return;
+  state.settings.sheet = null;
+  state.transactions.forEach((t) => { delete t.pending; delete t.row; });
+  state = normalize(state);
+  save();
+  toast('Sambungan diputus');
+  render();
 }
 
 /* ================= Money inputs ================= */
@@ -450,6 +690,11 @@ $$('dialog').forEach((d) => {
 
 // Transaction dialog
 let editingTx = null;
+// Pre-select the source used most recently, since most entries come from the same account.
+function lastSource() {
+  const t = [...state.transactions].sort(sortTx).find((x) => x.source);
+  return t ? t.source : '';
+}
 function fillCategorySelect(type, selected) {
   const sel = $('#txForm').category;
   sel.innerHTML = catsOf(type).map((c) => `<option value="${esc(c.id)}">${esc(c.icon)} ${esc(c.name)}</option>`).join('');
@@ -467,35 +712,78 @@ function openTx(tx) {
   const cur = monthOf(todayISO());
   f.date.value = tx ? tx.date : (ui.month === cur ? todayISO() : ui.month + '-01');
   f.note.value = tx ? tx.note || '' : '';
+  const sources = sourcesList();
+  f.source.innerHTML = '<option value="">—</option>' + sources.map((x) => `<option>${esc(x)}</option>`).join('');
+  f.source.value = tx ? tx.source || '' : (ui.source || lastSource() || sources[0] || '');
   $('#txDialogTitle').textContent = tx ? 'Ubah transaksi' : 'Tambah transaksi';
   $('#txDelete').hidden = !tx;
   openDialog($('#txDialog'));
   if (!tx) setTimeout(() => f.amount.focus(), 50);
 }
 $$('#txForm input[name="type"]').forEach((r) => r.addEventListener('change', () => fillCategorySelect(r.value)));
-$('#txForm').addEventListener('submit', (e) => {
+$('#txForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const f = e.target;
   const amount = parseMoney(f.amount.value);
   if (!amount) { $('#txError').textContent = 'Masukkan nominal lebih dari 0.'; return; }
   if (!f.date.value) { $('#txError').textContent = 'Pilih tanggal.'; return; }
-  const data = { type: f.type.value, amount, category: f.category.value, date: f.date.value, note: f.note.value.trim() };
-  if (editingTx) Object.assign(editingTx, data);
-  else state.transactions.push({ id: uid(), createdAt: Date.now(), ...data });
-  save();
+  if (!f.category.value) { $('#txError').textContent = 'Pilih kategori.'; return; }
+  const data = { type: f.type.value, amount, category: f.category.value, date: f.date.value, note: f.note.value.trim(), source: f.source.value };
+  const wasEdit = !!editingTx;
+
+  if (sheetMode() && editingTx && !editingTx.pending) {
+    // Existing Sheet row: change it in the Sheet first, local copy follows from the response.
+    const ok = await withBusy(f, () => sheetApi({ action: 'update', row: editingTx.row, orig: txPayload(editingTx), tx: data }));
+    if (!ok) return;
+  } else if (editingTx) {
+    Object.assign(editingTx, data);
+    save();
+  } else {
+    state.transactions.push({ id: uid(), createdAt: Date.now(), ...data, pending: sheetMode() || undefined });
+    save();
+  }
   closeDialog($('#txDialog'));
-  toast(editingTx ? 'Transaksi diperbarui' : 'Transaksi tersimpan');
+  toast(wasEdit ? 'Transaksi diperbarui' : 'Transaksi tersimpan');
   if (monthOf(data.date) !== ui.month) ui.month = monthOf(data.date);
   render();
+  if (sheetMode() && pendingTx().length) syncNow({ quiet: true });
 });
-$('#txDelete').addEventListener('click', () => {
+$('#txDelete').addEventListener('click', async () => {
   if (!editingTx || !confirm('Hapus transaksi ini?')) return;
-  state.transactions = state.transactions.filter((t) => t !== editingTx);
-  save();
+  if (sheetMode() && !editingTx.pending) {
+    const ok = await withBusy($('#txForm'), () => sheetApi({ action: 'delete', row: editingTx.row, orig: txPayload(editingTx) }));
+    if (!ok) return;
+  } else {
+    state.transactions = state.transactions.filter((t) => t !== editingTx);
+    save();
+  }
   closeDialog($('#txDialog'));
   toast('Transaksi dihapus');
   render();
 });
+
+// Disable a form's buttons while a Sheet request runs; show errors inside the form.
+async function withBusy(form, fn) {
+  const buttons = $$('button', form);
+  const errEl = $('.form-error', form);
+  buttons.forEach((b) => { b.disabled = true; });
+  const submit = $('button[type=submit]', form);
+  const label = submit.textContent;
+  submit.textContent = 'Menyimpan ke Sheet…';
+  errEl.textContent = '';
+  try {
+    await fn();
+    return true;
+  } catch (err) {
+    errEl.textContent = err instanceof NetworkError
+      ? 'Tidak ada koneksi. Mengubah/menghapus data Sheet butuh internet.'
+      : err.message;
+    return false;
+  } finally {
+    buttons.forEach((b) => { b.disabled = false; });
+    submit.textContent = label;
+  }
+}
 
 // Budget dialog
 function openBudgets() {
@@ -562,7 +850,7 @@ function updateDepositLabel() {
   const out = $('#depositForm').kind.value === 'out';
   $('#depositRecordLabel').textContent = out
     ? 'Catat juga sebagai pemasukan (menambah saldo)'
-    : 'Catat juga sebagai pengeluaran "Tabungan & Investasi" (mengurangi saldo)';
+    : `Catat juga sebagai pengeluaran "${catById(savingsCategory(false)).name}" (mengurangi saldo)`;
 }
 function openDeposit(goal) {
   depositGoal = goal;
@@ -588,14 +876,17 @@ $('#depositForm').addEventListener('submit', (e) => {
     state.transactions.push({
       id: uid(), createdAt: Date.now(), amount, date: f.date.value || todayISO(),
       type: out ? 'income' : 'expense',
-      category: out ? 'other-inc' : 'savings',
+      category: savingsCategory(out),
       note: `${out ? 'Tarik dari' : 'Setor ke'} ${depositGoal.name}`,
+      source: lastSource(),
+      pending: sheetMode() || undefined,
     });
   }
   save();
   closeDialog($('#depositDialog'));
   toast(out ? 'Penarikan dicatat' : 'Setoran dicatat');
   render();
+  if (sheetMode() && pendingTx().length) syncNow({ quiet: true });
 });
 
 // Category dialog
@@ -653,14 +944,16 @@ function download(filename, content, type) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function exportJSON() {
-  download(`budgetplanner-cadangan-${todayISO()}.json`, JSON.stringify(state, null, 2), 'application/json');
+  // Never put the Sheet URL/secret into a file that may get shared.
+  const copy = { ...state, settings: { ...state.settings, sheet: null } };
+  download(`budgetplanner-cadangan-${todayISO()}.json`, JSON.stringify(copy, null, 2), 'application/json');
   toast('File cadangan diunduh');
 }
 function exportCSV() {
   const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const rows = [['Tanggal', 'Tipe', 'Kategori', 'Nominal', 'Catatan']];
+  const rows = [['Tanggal', 'Tipe', 'Kategori', 'Nominal', 'Catatan', 'Sumber Dana']];
   [...state.transactions].sort((a, b) => a.date.localeCompare(b.date)).forEach((t) => {
-    rows.push([t.date, t.type === 'income' ? 'Pemasukan' : 'Pengeluaran', catById(t.category).name, t.amount, t.note || '']);
+    rows.push([t.date, t.type === 'income' ? 'Pemasukan' : 'Pengeluaran', catById(t.category).name, t.amount, t.note || '', t.source || '']);
   });
   download(`budgetplanner-transaksi-${todayISO()}.csv`, '﻿' + rows.map((r) => r.map(q).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
   toast('CSV diunduh');
@@ -672,8 +965,17 @@ $('#importFile').addEventListener('change', async (e) => {
   try {
     const data = JSON.parse(await file.text());
     if (!data || !Array.isArray(data.transactions)) throw new Error('format');
-    if (!confirm(`Pulihkan ${data.transactions.length} transaksi dari cadangan? Data saat ini akan diganti.`)) return;
-    state = normalize(data);
+    if (sheetMode()) {
+      // Transactions live in the Sheet; only restore what the app keeps locally.
+      if (!confirm('Terhubung ke Google Sheet: hanya budget, target tabungan, dan tema yang dipulihkan. Transaksi tetap dari Sheet. Lanjut?')) return;
+      const restored = normalize(data);
+      state.budgets = restored.budgets;
+      state.goals = restored.goals;
+      state.settings.theme = restored.settings.theme;
+    } else {
+      if (!confirm(`Pulihkan ${data.transactions.length} transaksi dari cadangan? Data saat ini akan diganti.`)) return;
+      state = normalize({ ...data, settings: { ...(data.settings || {}), sheet: null } });
+    }
     save();
     applyTheme();
     toast('Data berhasil dipulihkan');
@@ -742,19 +1044,31 @@ document.addEventListener('click', (e) => {
     case 'export-json': exportJSON(); break;
     case 'export-csv': exportCSV(); break;
     case 'install': promptInstall(); break;
+    case 'sync': syncNow(); break;
+    case 'disconnect-sheet': disconnectSheet(); break;
     case 'dismiss-install': state.settings.installDismissed = true; save(); render(); break;
     case 'reset':
-      if (confirm('Hapus SEMUA data (transaksi, budget, tabungan, kategori)? Tindakan ini tidak bisa dibatalkan.')) {
+      if (confirm(sheetMode()
+        ? 'Hapus semua data di HP ini dan putuskan dari Google Sheet? Isi Google Sheet TIDAK ikut terhapus.'
+        : 'Hapus SEMUA data (transaksi, budget, tabungan, kategori)? Tindakan ini tidak bisa dibatalkan.')) {
         state = defaults(); save(); applyTheme(); toast('Semua data dihapus'); render();
       }
       break;
   }
 });
 $('#fab').addEventListener('click', () => openTx());
+$('#sheetConnect').addEventListener('submit', connectSheet);
+$('#syncBtn').addEventListener('click', () => syncNow());
+// Pull fresh data whenever the app comes back to the foreground or the connection returns.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && Date.now() - sync.lastTry > 30000) syncNow({ quiet: true });
+});
+window.addEventListener('online', () => syncNow({ quiet: true }));
 $('#prevMonth').addEventListener('click', () => { ui.month = shiftMonth(ui.month, -1); render(); });
 $('#nextMonth').addEventListener('click', () => { ui.month = shiftMonth(ui.month, 1); render(); });
 $('#monthLabel').addEventListener('click', () => { ui.month = monthOf(todayISO()); render(); });
 $('#txSearch').addEventListener('input', (e) => { ui.search = e.target.value; renderTx(); });
+$('#txSource').addEventListener('change', (e) => { ui.source = e.target.value; renderTx(); });
 window.addEventListener('scroll', () => hideTooltip(), { passive: true });
 
 let resizeTimer;
@@ -769,6 +1083,7 @@ window.addEventListener('storage', (e) => { if (e.key === STORAGE_KEY) { state =
 /* ================= Boot ================= */
 applyTheme();
 render();
+syncNow({ quiet: true });
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));

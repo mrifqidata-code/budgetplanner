@@ -98,7 +98,20 @@ button { cursor: pointer; }
   padding: 10px 16px;
 }
 .app-title { font-size: 20px; font-weight: 700; }
+.m-short { display: none; }
+@media (max-width: 440px) { .m-long { display: none; } .m-short { display: inline; } }
+@media (max-width: 380px) { .app-title { font-size: 18px; } .month-label { padding: 6px 8px; font-size: 13px; } }
 .month-switch { display: flex; align-items: center; gap: 2px; }
+.topbar-inner .app-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sync-btn { position: relative; color: var(--accent); font-size: 22px; }
+.sync-btn.spinning { animation: spin 1s linear infinite; }
+.sync-btn.has-error { color: var(--critical); }
+.sync-btn[data-badge]:not([data-badge=""])::after {
+  content: attr(data-badge); position: absolute; top: 0; right: 0;
+  min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px;
+  background: var(--warning); color: #0b0b0b; font-size: 10px; font-weight: 700; line-height: 16px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 .month-label {
   border: 0; background: var(--surface-2); border-radius: 999px;
   padding: 6px 12px; font-weight: 600; font-size: 14px; white-space: nowrap;
@@ -204,6 +217,13 @@ main {
 .summary-row small { display: block; color: var(--text-2); font-size: 12px; }
 .summary-row b { font-size: 14px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .toolbar { display: flex; flex-direction: column; gap: 8px; }
+.toolbar-row { display: flex; gap: 8px; }
+.toolbar-row #txSearch { flex: 1 1 60%; min-width: 0; }
+.toolbar-row #txSource { flex: 1 1 40%; min-width: 0; }
+.pending-tag { font-size: 11px; font-weight: 600; color: var(--text-2); background: var(--surface-2); border-radius: 999px; padding: 1px 6px; margin-left: 4px; white-space: nowrap; }
+.sheet-connect { display: flex; flex-direction: column; gap: 10px; }
+.sheet-connect a { color: var(--accent); }
+.cat-setting button:disabled { cursor: default; color: inherit; opacity: 1; }
 .chips { display: flex; gap: 6px; overflow-x: auto; }
 .chip {
   border: 1px solid var(--border); background: var(--surface); border-radius: 999px;
@@ -310,6 +330,7 @@ main {
 .field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-2); font-weight: 600; min-width: 0; }
 .field-row { display: flex; gap: 10px; }
 .field-row .field:last-child { flex: 1; }
+.field-row.two .field { flex: 1 1 0; }
 .field-icon { width: 72px; }
 .field-icon .input { text-align: center; }
 .input {
