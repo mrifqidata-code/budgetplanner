@@ -58,6 +58,14 @@ Setelah terhubung:
 
 **Keamanan:** Sheet tetap privat. Hanya yang tahu URL **dan** kode rahasia yang bisa membaca atau menulis data. Keduanya hanya disimpan di HP kamu dan tidak ikut ke file cadangan. Jangan menaruh data transaksi di repo ini, karena repo-nya publik.
 
+### Kalau gagal terhubung
+
+- **URL yang benar** ada di **Terapkan → Kelola deployment → URL aplikasi web**, bentuknya `https://script.google.com/macros/s/AKfy…/exec`. Yang **bukan**: URL Google Sheet (`docs.google.com/...`), URL editor Apps Script (`script.google.com/home/...` atau `.../edit`), dan URL uji yang berakhiran `/dev`.
+- **Tes URL-nya**: buka URL tersebut di browser. Kalau benar, muncul tulisan `Budget Planner connector aktif`. Kalau muncul *Script function not found*, artinya kode belum tersimpan saat deploy.
+- **Habis mengubah kode atau token**, deployment harus diperbarui: **Terapkan → Kelola deployment → ✏️ Edit → Versi: Versi baru → Terapkan**. Tanpa ini, Web App masih menjalankan versi lama.
+- **"Yang memiliki akses"** harus **Siapa saja**, bukan "Hanya saya" atau "Siapa saja yang memiliki Akun Google".
+- Aplikasi menampilkan penyebab pastinya di bawah tombol **Hubungkan**.
+
 > Kalau nanti `Code.gs` diperbarui: tempel versi baru, lalu **Terapkan → Kelola deployment → ✏️ Edit → Versi: Versi baru → Terapkan**. URL-nya tetap sama.
 
 ## Tentang data

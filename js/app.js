@@ -171,16 +171,40 @@ async function sheetApi(payload) {
       signal: ctrl.signal,
     });
   } catch (e) {
-    throw new NetworkError('Tidak ada koneksi ke Google Sheet.');
+    // When the device is online, a failed request usually means Google answered with a login page
+    // (no CORS headers), i.e. the deployment is not open to "Siapa saja".
+    throw new NetworkError(navigator.onLine === false
+      ? 'Tidak ada koneksi internet.'
+      : 'Tidak bisa menghubungi Web App. Pastikan URL berakhiran /exec dan di deployment "Yang memiliki akses" = "Siapa saja".');
   } finally {
     clearTimeout(timer);
   }
+  const text = await res.text().catch(() => '');
   let data;
-  try { data = await res.json(); }
-  catch (e) { throw new Error('Respons tidak valid. Pastikan URL Web App benar dan aksesnya "Siapa saja".'); }
+  try { data = JSON.parse(text); }
+  catch (e) { throw new Error(explainBadResponse(text, res.status)); }
   if (!data || !data.ok) throw new Error((data && data.error) || 'Gagal menghubungi Google Sheet.');
   applySheetData(data);
   return data;
+}
+
+// Google returns an HTML page instead of JSON when the deployment is misconfigured; say which case it is.
+function explainBadResponse(text, status) {
+  const fix = 'Lalu di Apps Script: Terapkan › Kelola deployment › ✏️ Edit › Versi: Versi baru › Terapkan.';
+  if (/function not found|tidak ditemukan|doPost|doGet/i.test(text)) {
+    return 'Web App belum berisi kode Budget Planner. Tempel seluruh isi Code.gs, klik Simpan. ' + fix;
+  }
+  if (/authoriz|otorisasi|izin/i.test(text)) {
+    return 'Skrip belum diberi izin. Di editor Apps Script pilih fungsi doGet, klik Jalankan, lalu izinkan aksesnya. ' + fix;
+  }
+  if (/accounts\.google\.com|ServiceLogin|sign in|login|masuk/i.test(text)) {
+    return 'Google meminta login. Di deployment, "Jalankan sebagai" harus "Saya" dan "Yang memiliki akses" harus "Siapa saja". ' + fix;
+  }
+  const plain = new DOMParser().parseFromString(text, 'text/html').body.textContent || '';
+  const err = plain.match(/\b(?:TypeError|ReferenceError|SyntaxError|Exception)\b[^\n]{0,160}/);
+  if (err) return 'Apps Script error: ' + err[0].replace(/\s+/g, ' ').trim();
+  if (status === 404) return 'URL Web App tidak ditemukan (404). Salin ulang "URL aplikasi web" dari Terapkan › Kelola deployment.';
+  return 'Respons tidak valid (bukan dari Budget Planner). Pastikan yang ditempel adalah "URL aplikasi web" berakhiran /exec. ' + fix;
 }
 
 function applySheetData(data) {
@@ -626,17 +650,33 @@ function renderSheetCard() {
     ${sync.error ? `<div class="form-error">⚠️ ${esc(sync.error)}</div>` : ''}`;
 }
 
+// Accept what people typically paste and turn it into the Web App /exec URL, or say what's wrong.
+function normalizeSheetUrl(raw) {
+  const u = String(raw || '').trim();
+  const where = 'Di Apps Script buka Terapkan › Kelola deployment, lalu salin "URL aplikasi web" (berakhiran /exec).';
+  if (!u) return { error: 'Isi URL Web App. ' + where };
+  if (/^http:\/\/localhost[:/]/.test(u)) return { url: u };
+  // A bare deployment ID (AKfycb…) is enough to build the URL.
+  if (/^AKfy[\w-]{20,}$/.test(u)) return { url: `https://script.google.com/macros/s/${u}/exec` };
+  if (/docs\.google\.com\/spreadsheets/.test(u)) return { error: 'Itu URL Google Sheet, bukan URL Web App. ' + where };
+  if (/script\.google\.com\/(home|d\/)/.test(u) || /\/edit(\b|$)/.test(u)) return { error: 'Itu URL editor Apps Script, bukan URL Web App. ' + where };
+  const m = u.match(/^https:\/\/script\.google\.com\/(?:a\/macros\/[^/]+|macros)\/(?:u\/\d+\/)?s\/([\w-]+)\/(exec|dev)\b/);
+  if (!m) return { error: 'URL tidak dikenali. ' + where };
+  if (m[2] === 'dev') return { error: 'Itu URL uji (berakhiran /dev) yang hanya bisa dipakai di browser pemilik. ' + where };
+  // Drop account selectors like /u/1/ that force a Google login page.
+  return { url: `https://script.google.com/macros/s/${m[1]}/exec` };
+}
+
 async function connectSheet(e) {
   e.preventDefault();
   const f = e.target;
-  const url = f.url.value.trim();
   const token = f.token.value.trim();
   const err = $('#sheetError');
   err.textContent = '';
-  if (!/^https:\/\/script\.google(usercontent)?\.com\/.+/.test(url) && !/^http:\/\/localhost[:/]/.test(url)) {
-    err.textContent = 'URL harus berupa URL Web App Apps Script (https://script.google.com/macros/s/…/exec).';
-    return;
-  }
+  const parsed = normalizeSheetUrl(f.url.value);
+  if (parsed.error) { err.textContent = parsed.error; return; }
+  const url = parsed.url;
+  f.url.value = url;
   if (!token) { err.textContent = 'Isi kode rahasia (TOKEN) yang kamu tulis di Apps Script.'; return; }
   const local = state.transactions.length;
   if (local && !(await ask(`${local} transaksi yang ada di HP ini akan diganti dengan data dari Google Sheet. Buat cadangan dulu kalau perlu. Lanjut?`, { ok: 'Lanjut' }))) return;
@@ -802,8 +842,8 @@ async function withBusy(form, fn) {
     await fn();
     return true;
   } catch (err) {
-    errEl.textContent = err instanceof NetworkError
-      ? 'Tidak ada koneksi. Mengubah/menghapus data Sheet butuh internet.'
+    errEl.textContent = err instanceof NetworkError && navigator.onLine === false
+      ? 'Tidak ada koneksi internet. Mengubah/menghapus data di Sheet butuh internet.'
       : err.message;
     return false;
   } finally {
